@@ -10,6 +10,6 @@ node('linux')
         }
 
         stage('Build') {
-                build job: 'Port-Pipeline', parameters: [string(name: 'PORT_GITHUB_REPO', value: 'tarport'), string(name: 'PORT_DESCRIPTION', value: 'tar saves many files together into a single tape or disk archive, and can restore individual files from the archive.' )]
+                build job: 'Port-Pipeline', parameters: [string(name: 'PORT_GITHUB_REPO', value: 'https://github.com/ZOSOpenTools/tarport.git'), string(name: 'PORT_DESCRIPTION', value: 'tar saves many files together into a single tape or disk archive, and can restore individual files from the archive.' )]
         }
 }
