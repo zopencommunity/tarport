@@ -17,6 +17,6 @@ export ZOPEN_CHECK=skip # test #11 hangs
 
 zopen_check_results()
 {
-  return 3
+  return 3 # non-functional
 }
 
