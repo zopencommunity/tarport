@@ -14,3 +14,9 @@ export ZOPEN_GIT_DEPS="git make m4 perl makeinfo autoconf automake"
 
 export ZOPEN_EXTRA_LDFLAGS=""
 export ZOPEN_CHECK=skip # test #11 hangs   
+
+zopen_check_results()
+{
+  return 3
+}
+
