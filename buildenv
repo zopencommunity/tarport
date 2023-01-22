@@ -21,6 +21,6 @@ totalTests=$(tail -50 ${chk} | egrep 'ERROR.*tests were run' | awk '{print $2;}'
 cat <<ZZ
 actualFailures:$failures
 totalTests:$totalTests
-expectedFailures:117
+expectedFailures:26
 ZZ
 }
