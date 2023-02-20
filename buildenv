@@ -11,7 +11,7 @@ export ZOPEN_CHECK_TIMEOUT=20000
 
 ZOPEN_GIT_DIR=git
 export ZOPEN_GIT_URL="git://git.savannah.gnu.org/${ZOPEN_GIT_DIR}.git"
-export ZOPEN_GIT_DEPS="git make m4 perl makeinfo autoconf automake"
+export ZOPEN_GIT_DEPS="git make m4 perl texinfo autoconf automake"
 
 zopen_check_results()
 {
