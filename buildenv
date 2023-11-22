@@ -11,6 +11,9 @@ ZOPEN_DEV_DIR=git
 export ZOPEN_DEV_URL="git://git.savannah.gnu.org/${ZOPEN_DEV_DIR}.git"
 export ZOPEN_DEV_DEPS="git make m4 perl texinfo autoconf automake"
 
+#ERROR: 205 tests were run,
+#95 failed unexpectedly.
+#33 tests were skipped.
 
 zopen_check_results()
 {
