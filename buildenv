@@ -33,3 +33,19 @@ zopen_get_version()
 {
   ./src/tar --version | head -1 | awk '{print $4; }'
 }
+
+zopen_post_install()
+{
+  mv $ZOPEN_INSTALL_DIR/bin/tar $ZOPEN_INSTALL_DIR/bin/gtar
+  mkdir $ZOPEN_INSTALL_DIR/altbin
+  ln -s ../bin/gtar $ZOPEN_INSTALL_DIR/altbin/tar
+}
+
+zopen_install_caveats()
+{
+cat <<ZZ
+GNU Tar has been installed as gtar under bin/ to avoid collision with z/OS /bin/tar.
+If you prefer to use the GNU Tar as tar, source zopen-config with the option --override-zos-tools.
+Or add \$ZOPEN_ROOTFS/usr/local/altbin to your \$PATH.
+ZZ
+}
