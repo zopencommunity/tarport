@@ -2,6 +2,7 @@
 TAR_VERSION="1.35"
 
 export ZOPEN_BUILD_LINE="STABLE"
+export ZOPEN_CATEGORIES="utilities"
 export ZOPEN_STABLE_URL="https://ftp.gnu.org/gnu/tar/tar-${TAR_VERSION}.tar.gz"
 export ZOPEN_STABLE_DEPS="curl gzip make m4 zoslib"
 
