@@ -1,5 +1,40 @@
+diff --git a/src/create.c b/src/create.c
+index d20178c..cb6894a 100644
+--- a/src/create.c
++++ b/src/create.c
+@@ -895,6 +895,16 @@ start_header (struct tar_stat_info *st)
+ 	TIME_TO_CHARS (st->ctime.tv_sec, header->oldgnu_header.ctime);
+       }
+ 
++#ifdef __MVS__
++  /* Store z/OS file tag attributes in extended header for both POSIX and GNU formats */
++  if (archive_format == POSIX_FORMAT || archive_format == GNU_FORMAT)
++    {
++      xheader_store ("ZOS.ccsid", st, NULL);
++      xheader_store ("ZOS.txtflag", st, NULL);
++      xheader_store ("ZOS.genvalue", st, NULL);
++    }
++#endif
++
+   header->header.typeflag = archive_format == V7_FORMAT ? AREGTYPE : REGTYPE;
+ 
+   switch (archive_format)
+@@ -1687,6 +1697,13 @@ dump_file0 (struct tar_stat_info *st, char const *name, char const *p)
+   st->mtime = get_stat_mtime (&st->stat);
+   st->ctime = get_stat_ctime (&st->stat);
+ 
++#ifdef __MVS__
++  /* Capture z/OS file tag attributes */
++  st->zos_ccsid = st->stat.st_tag.ft_ccsid;
++  st->zos_txtflag = st->stat.st_tag.ft_txtflag;
++  st->zos_genvalue = st->stat.st_genvalue;
++#endif
++
+ #ifdef S_ISHIDDEN
+   if (S_ISHIDDEN (st->stat.st_mode))
+     {
 diff --git a/src/extract.c b/src/extract.c
-index 314d8bc..106e4d1 100644
+index 314d8bc..ecf8837 100644
 --- a/src/extract.c
 +++ b/src/extract.c
 @@ -28,6 +28,10 @@
@@ -13,7 +48,7 @@ index 314d8bc..106e4d1 100644
  #include "common.h"
  
  static bool we_are_root;	/* true if our effective uid == 0 */
-@@ -443,6 +447,70 @@ set_stat (char const *file_name,
+@@ -443,6 +447,110 @@ set_stat (char const *file_name,
    xattrs_xattrs_set (st, file_name, typeflag, 1);
    xattrs_acls_set (st, file_name, typeflag);
    xattrs_selinux_set (st, file_name, typeflag);
@@ -79,16 +114,56 @@ index 314d8bc..106e4d1 100644
 +              }
 +          }
 +      }
++
++    /* Apply genvalue bits if present - only for regular files */
++    if (st->zos_genvalue != 0
++        && (typeflag == REGTYPE || typeflag == AREGTYPE || typeflag == CONTTYPE))
++      {
++        attrib_t pbits;
++        memset (&pbits, 0, sizeof (pbits));
++
++        /* Set individual genvalue bits based on the RPM pattern */
++        if (st->zos_genvalue & __ST_APF_AUTH)
++          {
++            pbits.att_apfauthmask = 1;
++            pbits.att_apfauth = 1;
++            pbits.att_setgen = 1;
++          }
++        if (st->zos_genvalue & __ST_PROG_CTL)
++          {
++            pbits.att_progctlmask = 1;
++            pbits.att_progctl = 1;
++            pbits.att_setgen = 1;
++          }
++        if (st->zos_genvalue & __ST_NO_SHAREAS)
++          {
++            pbits.att_noshareasmask = 1;
++            pbits.att_noshareas = 1;
++            pbits.att_setgen = 1;
++          }
++        if (st->zos_genvalue & __ST_SHARE_LIB)
++          {
++            pbits.att_sharelibmask = 1;
++            pbits.att_sharelib = 1;
++            pbits.att_setgen = 1;
++          }
++
++        if (__chattr (file_name, &pbits, sizeof (pbits)) != 0)
++          {
++            ERROR ((0, errno, _("%s: Cannot set genvalue attributes"),
++                    quotearg_colon (file_name)));
++          }
++      }
 +  }
 +#endif
  }
  
  /* Find the direct ancestor of FILE_NAME in the delayed_set_stat list.
 diff --git a/src/tar.h b/src/tar.h
-index 7ae3ca6..ae0ca6d 100644
+index 7ae3ca6..6a449d8 100644
 --- a/src/tar.h
 +++ b/src/tar.h
-@@ -374,6 +374,12 @@ struct tar_stat_info
+@@ -374,6 +374,13 @@ struct tar_stat_info
  
    /* Exclusion list */
    struct exclist *exclude_list;
@@ -97,15 +172,16 @@ index 7ae3ca6..ae0ca6d 100644
 +  /* z/OS file tag attributes */
 +  unsigned short zos_ccsid;     /* Coded Character Set ID */
 +  unsigned int zos_txtflag;     /* Text flag */
++  unsigned int zos_genvalue;    /* General value (APF, program control, etc.) */
 +#endif
  };
  
  union block
 diff --git a/src/xheader.c b/src/xheader.c
-index 1347ce1..0e0df05 100644
+index 1347ce1..cd7338d 100644
 --- a/src/xheader.c
 +++ b/src/xheader.c
-@@ -1698,6 +1698,48 @@ sparse_minor_decoder (struct tar_stat_info *st,
+@@ -1698,6 +1698,66 @@ sparse_minor_decoder (struct tar_stat_info *st,
      st->sparse_minor = u;
  }
  
@@ -149,12 +225,30 @@ index 1347ce1..0e0df05 100644
 +  if (decode_num (&u, arg, TYPE_MAXIMUM (unsigned int), keyword))
 +    st->zos_txtflag = u;
 +}
++
++static void
++zos_genvalue_coder (struct tar_stat_info const *st, char const *keyword,
++                    struct xheader *xhdr, MAYBE_UNUSED void const *data)
++{
++  code_num (st->zos_genvalue, keyword, xhdr);
++}
++
++static void
++zos_genvalue_decoder (struct tar_stat_info *st,
++                      char const *keyword,
++                      char const *arg,
++                      MAYBE_UNUSED size_t size)
++{
++  uintmax_t u;
++  if (decode_num (&u, arg, TYPE_MAXIMUM (unsigned int), keyword))
++    st->zos_genvalue = u;
++}
 +#endif
 +
  struct xhdr_tab const xhdr_tab[] = {
    { "atime",    atime_coder,    atime_decoder,    0, false },
    { "comment",  dummy_coder,    dummy_decoder,    0, false },
-@@ -1777,5 +1819,11 @@ struct xhdr_tab const xhdr_tab[] = {
+@@ -1777,5 +1837,12 @@ struct xhdr_tab const xhdr_tab[] = {
       they are restored *only once* during extraction later on. */
    { "SCHILY.xattr", xattr_coder, xattr_decoder, 0, true },
  
@@ -162,40 +256,8 @@ index 1347ce1..0e0df05 100644
 +  /* z/OS file tag attributes */
 +  { "ZOS.ccsid", zos_ccsid_coder, zos_ccsid_decoder, 0, false },
 +  { "ZOS.txtflag", zos_txtflag_coder, zos_txtflag_decoder, 0, false },
++  { "ZOS.genvalue", zos_genvalue_coder, zos_genvalue_decoder, 0, false },
 +#endif
 +
    { NULL, NULL, NULL, 0, false }
  };
-diff --git i/src/create.c w/src/create.c
-index d20178c..35cdaa6 100644
---- i/src/create.c
-+++ w/src/create.c
-@@ -895,6 +895,15 @@ start_header (struct tar_stat_info *st)
- 	TIME_TO_CHARS (st->ctime.tv_sec, header->oldgnu_header.ctime);
-       }
- 
-+ #ifdef __MVS__
-+    /* Store z/OS file tag attributes in extended header for both POSIX and GNU formats */
-+    if (archive_format == POSIX_FORMAT || archive_format == GNU_FORMAT)
-+      {
-+        xheader_store ("ZOS.ccsid", st, NULL);
-+        xheader_store ("ZOS.txtflag", st, NULL);
-+      }
-+  #endif
-+
-   header->header.typeflag = archive_format == V7_FORMAT ? AREGTYPE : REGTYPE;
- 
-   switch (archive_format)
-@@ -1687,6 +1696,12 @@ dump_file0 (struct tar_stat_info *st, char const *name, char const *p)
-   st->mtime = get_stat_mtime (&st->stat);
-   st->ctime = get_stat_ctime (&st->stat);
- 
-+#ifdef __MVS__
-+  /* Capture z/OS file tag attributes */
-+  st->zos_ccsid = st->stat.st_tag.ft_ccsid;
-+  st->zos_txtflag = st->stat.st_tag.ft_txtflag;
-+#endif
-+
- #ifdef S_ISHIDDEN
-   if (S_ISHIDDEN (st->stat.st_mode))
-     {
