@@ -1,17 +1,3 @@
-diff --git a/gnu/fdopendir.c b/gnu/fdopendir.c
-index 0f43d6f..015163d 100644
---- a/gnu/fdopendir.c
-+++ b/gnu/fdopendir.c
-@@ -174,7 +174,9 @@ fdopendir_with_dup (int fd, int older_dupfd, struct saved_cwd const *cwd)
-         }
-       else
-         {
-+#ifndef __MVS__
-           close (fd);
-+#endif
-           dir = fd_clone_opendir (dupfd, cwd);
-           saved_errno = errno;
-           if (! dir)
 diff --git a/src/create.c b/src/create.c
 index d20178c..cb6894a 100644
 --- a/src/create.c
