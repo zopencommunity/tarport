@@ -1,7 +1,7 @@
-diff --git a/src/create.c b/src/create.c
+diff --git i/src/create.c w/src/create.c
 index d20178c..cb6894a 100644
---- a/src/create.c
-+++ b/src/create.c
+--- i/src/create.c
++++ w/src/create.c
 @@ -895,6 +895,16 @@ start_header (struct tar_stat_info *st)
  	TIME_TO_CHARS (st->ctime.tv_sec, header->oldgnu_header.ctime);
        }
@@ -33,22 +33,23 @@ index d20178c..cb6894a 100644
  #ifdef S_ISHIDDEN
    if (S_ISHIDDEN (st->stat.st_mode))
      {
-diff --git a/src/extract.c b/src/extract.c
-index 314d8bc..aad442f 100644
---- a/src/extract.c
-+++ b/src/extract.c
-@@ -28,6 +28,10 @@
+diff --git i/src/extract.c w/src/extract.c
+index 314d8bc..c551e36 100644
+--- i/src/extract.c
++++ w/src/extract.c
+@@ -27,6 +27,11 @@
+ #include <priv-set.h>
  #include <root-uid.h>
  #include <utimens.h>
- 
++#include <termios.h>
++
 +#ifdef __MVS__
 +#include <fcntl.h>
 +#endif
-+
+ 
  #include "common.h"
  
- static bool we_are_root;	/* true if our effective uid == 0 */
-@@ -443,6 +447,107 @@ set_stat (char const *file_name,
+@@ -443,6 +448,125 @@ set_stat (char const *file_name,
    xattrs_xattrs_set (st, file_name, typeflag, 1);
    xattrs_acls_set (st, file_name, typeflag);
    xattrs_selinux_set (st, file_name, typeflag);
@@ -145,7 +146,25 @@ index 314d8bc..aad442f 100644
 +            pbits.att_setgen = 1;
 +          }
 +
-+        if (__chattr (file_name, &pbits, sizeof (pbits)) != 0)
++        /* Use w_ioctl to get the full path from fd if available */
++        char *chattr_path = NULL;
++        char fd_path_buf[_XOPEN_PATH_MAX];
++
++        if (fd >= 0)
++          {
++            int rc = w_ioctl (fd, _IOCC_GPN, _XOPEN_PATH_MAX, fd_path_buf);
++            if (rc == 0)
++              {
++                __e2a_l (fd_path_buf, _XOPEN_PATH_MAX);
++                chattr_path = fd_path_buf;
++              }
++          }
++
++        /* Fall back to file_name if we couldn't get path from fd */
++        if (chattr_path == NULL)
++          chattr_path = (char *) file_name;
++
++        if (__chattr (chattr_path, &pbits, sizeof (pbits)) != 0)
 +          {
 +            ERROR ((0, errno, _("%s: Cannot set genvalue attributes"),
 +                    quotearg_colon (file_name)));
@@ -156,10 +175,10 @@ index 314d8bc..aad442f 100644
  }
  
  /* Find the direct ancestor of FILE_NAME in the delayed_set_stat list.
-diff --git a/src/tar.h b/src/tar.h
+diff --git i/src/tar.h w/src/tar.h
 index 7ae3ca6..6a449d8 100644
---- a/src/tar.h
-+++ b/src/tar.h
+--- i/src/tar.h
++++ w/src/tar.h
 @@ -374,6 +374,13 @@ struct tar_stat_info
  
    /* Exclusion list */
@@ -174,10 +193,10 @@ index 7ae3ca6..6a449d8 100644
  };
  
  union block
-diff --git a/src/xheader.c b/src/xheader.c
+diff --git i/src/xheader.c w/src/xheader.c
 index 1347ce1..cd7338d 100644
---- a/src/xheader.c
-+++ b/src/xheader.c
+--- i/src/xheader.c
++++ w/src/xheader.c
 @@ -1698,6 +1698,66 @@ sparse_minor_decoder (struct tar_stat_info *st,
      st->sparse_minor = u;
  }
