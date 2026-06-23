@@ -1,3 +1,5 @@
+[![CodeQL](https://github.com/zopencommunity/tarport/actions/workflows/codeql.yml/badge.svg)](https://github.com/zopencommunity/tarport/actions/workflows/codeql.yml)
+
 [![Automatic version updates](https://github.com/ZOSOpenTools/tarport/actions/workflows/bump.yml/badge.svg)](https://github.com/ZOSOpenTools/tarport/actions/workflows/bump.yml)
 
 # Tar
