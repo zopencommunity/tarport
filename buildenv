@@ -30,6 +30,12 @@ expectedFailures:26
 ZZ
 }
 
+zopen_post_install()
+{
+  # Delete the share/info/dir file if it exists
+  rm -f "$1/share/info/dir"
+}
+
 zopen_get_version()
 {
   ./src/tar --version | head -1 | awk '{print $4; }'
